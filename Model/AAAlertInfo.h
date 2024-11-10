@@ -1,3 +1,5 @@
+#import <Foundation/Foundation.h>
+
 @interface AAAlertInfo: NSObject
 
 @property (nonatomic, retain) NSArray<NSString *> *actions;

@@ -1,4 +1,5 @@
 #import "AAConfigurationViewControllerDelegate.h"
+#import <UIKit/UIKit.h>
 
 @interface AAConfigurationViewController: UIViewController
 

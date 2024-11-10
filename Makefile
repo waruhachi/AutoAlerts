@@ -1,6 +1,10 @@
-include $(THEOS)/makefiles/common.mk
+export THEOS_PACKAGE_SCHEME = rootless
+export ARCHS = arm64 arm64e
+export TARGET = iphone:14.5:14.0
+export GO_EASY_ON_ME = 1
+export COPYFILE_DISABLE=1
 
-ARCHS = arm64 arm64e
+include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = AutoAlerts
 AutoAlerts_FILES = Tweak.xm AAConfigurationViewController.xm AAAppIconCell.m Model/AAAlertInfo.m AACoreDataStack.m AAAlertManager.m

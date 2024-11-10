@@ -1,6 +1,7 @@
 #import "AutoAlerts.h"
 #import "AAConfigurationViewController.h"
 #import "AAAlertManager.h"
+#import <rootless.h>
 
 extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void);
 
@@ -292,15 +293,8 @@ static void *sbObserver = NULL;
 %ctor {
     BOOL isSpringBoard = [[NSBundle mainBundle].bundleIdentifier isEqual:@"com.apple.springboard"];
 
-    if (isSpringBoard) {
-        NSUserDefaults *defaults = [[[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"] autorelease];
-
-        autoAlertsEnabled = [defaults objectForKey:@"enabled"] == nil || [defaults boolForKey:@"enabled"];
-    } else {
-        NSDictionary *prefsDict = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist"];
-
-        autoAlertsEnabled = !prefsDict || [prefsDict objectForKey:@"enabled"] == nil || [[prefsDict objectForKey:@"enabled"] boolValue];
-    }
+    NSDictionary *prefsDict = [NSDictionary dictionaryWithContentsOfFile:ROOT_PATH_NS(@"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist")];
+    autoAlertsEnabled = !prefsDict || [prefsDict objectForKey:@"enabled"] == nil || [[prefsDict objectForKey:@"enabled"] boolValue];
 
     [[AAAlertManager sharedManager] initialize];
 

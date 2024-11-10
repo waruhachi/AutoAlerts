@@ -1,3 +1,6 @@
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+
 @interface AAAppIconCell: UITableViewCell
 
 @property (nonatomic, retain) UIImageView *appIconImageView;

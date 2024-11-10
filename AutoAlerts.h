@@ -1,5 +1,6 @@
 #import "Model/AAAlertInfo.h"
 #import "AAConfigurationViewControllerDelegate.h"
+#import <UIKit/UIKit.h>
 
 @interface UIAlertController () <AAConfigurationViewControllerDelegate>
 
