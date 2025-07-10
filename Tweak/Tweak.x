@@ -3,6 +3,7 @@
 #import "AAAlertManager.h"
 #import <roothide.h>
 #import <CoreFoundation/CFNotificationCenter.h>
+#import <AudioToolbox/AudioToolbox.h>
 
 BOOL autoAlertsEnabled = YES;
 
@@ -41,6 +42,8 @@ BOOL autoAlertsEnabled = YES;
 %new
 -(void)handleLongPress:(UILongPressGestureRecognizer *)sender {
     if (sender.state == UIGestureRecognizerStateBegan) {
+        AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
+
         self.dummyViewController = [[UIViewController alloc] init];
         self.dummyViewController.view.backgroundColor = [UIColor clearColor];
         self.dummyViewController.view.userInteractionEnabled = NO;
