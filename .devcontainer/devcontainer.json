@@ -1,0 +1,8 @@
+{
+	"name": "theos-codespace",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+	"features": {
+		"ghcr.io/waruhachi/features/theos:latest": {},
+        "ghcr.io/waruhachi/features/libplist:latest": {}
+	}
+}
