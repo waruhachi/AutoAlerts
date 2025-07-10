@@ -321,4 +321,3 @@ static void *sbObserver = NULL;
         );
     }
 }
-

@@ -1,6 +1,6 @@
 #import <Foundation/Foundation.h>
 
-@interface AAAlertInfo: NSObject
+@interface AAAlertInfo : NSObject
 
 @property (nonatomic, retain) NSArray<NSString *> *actions;
 @property (nonatomic, copy) NSString *title;
@@ -11,6 +11,6 @@
 @property (nonatomic, copy) NSString *bundleID;
 @property (nonatomic, copy) NSString *identifier;
 
--(id)initWithActions:(NSArray<NSString *> *)actions title:(NSString *)title message:(NSString *)message textFieldValues:(NSArray<NSString *> *)textFieldValues selectedAction:(int)selectedAction customAppActions:(NSMutableDictionary<NSString *, NSNumber *> *)customAppActions bundleID:(NSString *)bundleID;
+- (id)initWithActions:(NSArray<NSString *> *)actions title:(NSString *)title message:(NSString *)message textFieldValues:(NSArray<NSString *> *)textFieldValues selectedAction:(int)selectedAction customAppActions:(NSMutableDictionary<NSString *, NSNumber *> *)customAppActions bundleID:(NSString *)bundleID;
 
 @end
