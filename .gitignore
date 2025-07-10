@@ -1,5 +1,5 @@
-/.theos
-obj
+.theos
+.vscode
 .DS_Store
-/*.xcodeproj
+
 /packages

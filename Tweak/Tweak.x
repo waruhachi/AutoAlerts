@@ -1,9 +1,8 @@
 #import "AutoAlerts.h"
 #import "AAConfigurationViewController.h"
 #import "AAAlertManager.h"
-#import <rootless.h>
-
-extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void);
+#import <roothide.h>
+#import <CoreFoundation/CFNotificationCenter.h>
 
 BOOL autoAlertsEnabled = YES;
 
@@ -27,7 +26,7 @@ BOOL autoAlertsEnabled = YES;
 
     [self setTextFieldsCanBecomeFirstResponder:!self.automated];
 
-    UILongPressGestureRecognizer *longPress = [[[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)] autorelease];
+    UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleLongPress:)];
 
     _UIAlertControllerView *theView = (_UIAlertControllerView *)self.view;
 
@@ -42,7 +41,7 @@ BOOL autoAlertsEnabled = YES;
 %new
 -(void)handleLongPress:(UILongPressGestureRecognizer *)sender {
     if (sender.state == UIGestureRecognizerStateBegan) {
-        self.dummyViewController = [[[UIViewController alloc] init] autorelease];
+        self.dummyViewController = [[UIViewController alloc] init];
         self.dummyViewController.view.backgroundColor = [UIColor clearColor];
         self.dummyViewController.view.userInteractionEnabled = NO;
 
@@ -70,10 +69,10 @@ BOOL autoAlertsEnabled = YES;
 
         NSDictionary *customAppActions = self.alertInfo ? self.alertInfo.customAppActions : [NSDictionary dictionary];
 
-        AAConfigurationViewController *configCtrl = [[[AAConfigurationViewController alloc] initWithActions:actionTitles title:self.title message:self.message textFieldValues:textFieldValues customAppActions:customAppActions secure:secure] autorelease];
+        AAConfigurationViewController *configCtrl = [[AAConfigurationViewController alloc] initWithActions:actionTitles title:self.title message:self.message textFieldValues:textFieldValues customAppActions:customAppActions secure:secure];
         configCtrl.view.backgroundColor = [UIColor whiteColor];
         configCtrl.delegate = self;
-        
+
         [self.dummyViewController presentViewController:configCtrl animated:YES completion:nil];
     }
 }
@@ -106,7 +105,7 @@ BOOL autoAlertsEnabled = YES;
             if (selectedAction == 1) {
                 [UIView performWithoutAnimation:^{
                     SBAlertItem *item = [self valueForKey:@"alertItem"];
-                    
+
                     [item dismiss];
                 }];
             } else {
@@ -197,7 +196,7 @@ BOOL autoAlertsEnabled = YES;
 
             NSString *bundleID = [NSBundle mainBundle].bundleIdentifier;
 
-            AAAlertInfo *info = [[[AAAlertInfo alloc] initWithActions:actionTitles title:alert.title message:alert.message textFieldValues:textFieldValues selectedAction:0 customAppActions:[NSMutableDictionary dictionary] bundleID:bundleID] autorelease];
+            AAAlertInfo *info = [[AAAlertInfo alloc] initWithActions:actionTitles title:alert.title message:alert.message textFieldValues:textFieldValues selectedAction:0 customAppActions:[NSMutableDictionary dictionary] bundleID:bundleID];
 
             alert.alertInfo = [[AAAlertManager sharedManager] alertWithID:info.identifier];
 
@@ -220,7 +219,7 @@ BOOL autoAlertsEnabled = YES;
             } else {
                 alert.automated = NO;
             }
-            
+
             %orig(arg1, alert.automated ? NO : arg2, arg3);
         } else {
             %orig;
@@ -249,7 +248,7 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
         NSData *jsonData = [content dataUsingEncoding:NSUTF8StringEncoding];
 
         NSError *error = nil;
-        NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:nil error:&error];
+        NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
 
         NSLog(@"[AutoAlerts] content: %@", jsonDict);
 
@@ -261,7 +260,7 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
             NSArray *textFieldValues = [jsonDict objectForKey:@"textfieldvalues"];
             NSMutableDictionary *customAppActions = [jsonDict objectForKey:@"customappactions"];
 
-            AAAlertInfo *info = [[[AAAlertInfo alloc] initWithActions:actions title:title message:message textFieldValues:textFieldValues selectedAction:selectedAction customAppActions:customAppActions bundleID:bundleID] autorelease];
+            AAAlertInfo *info = [[AAAlertInfo alloc] initWithActions:actions title:title message:message textFieldValues:textFieldValues selectedAction:selectedAction customAppActions:customAppActions bundleID:bundleID];
 
             [[AAAlertManager sharedManager] saveAlert:info error:nil];
 
@@ -280,7 +279,7 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
 
         [[AAAlertManager sharedManager] deleteAlertsWithBundleID:bundleID error:nil];
     } else if ([(NSString *)name isEqual:@"com.shiftcmdk.autoalerts.toggle"]) {
-        NSUserDefaults *defaults = [[[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"] autorelease];
+        NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
 
         autoAlertsEnabled = [defaults objectForKey:@"enabled"] == nil || [defaults boolForKey:@"enabled"];
 
@@ -293,14 +292,14 @@ static void *sbObserver = NULL;
 %ctor {
     BOOL isSpringBoard = [[NSBundle mainBundle].bundleIdentifier isEqual:@"com.apple.springboard"];
 
-    NSDictionary *prefsDict = [NSDictionary dictionaryWithContentsOfFile:ROOT_PATH_NS(@"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist")];
+    NSDictionary *prefsDict = [NSDictionary dictionaryWithContentsOfFile:jbroot(@"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist")];
     autoAlertsEnabled = !prefsDict || [prefsDict objectForKey:@"enabled"] == nil || [[prefsDict objectForKey:@"enabled"] boolValue];
 
     [[AAAlertManager sharedManager] initialize];
 
     if (isSpringBoard) {
         CFNotificationCenterAddObserver(
-            CFNotificationCenterGetDistributedCenter(),
+            CFNotificationCenterGetDarwinNotifyCenter(),
             &sbObserver,
             notificationCallback,
             NULL,
@@ -315,7 +314,7 @@ static void *sbObserver = NULL;
 
     if (isSpringBoard) {
         CFNotificationCenterRemoveObserver(
-            CFNotificationCenterGetDistributedCenter(),
+            CFNotificationCenterGetDarwinNotifyCenter(),
             &sbObserver,
             NULL,
             NULL

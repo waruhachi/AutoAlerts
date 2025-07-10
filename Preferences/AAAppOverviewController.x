@@ -1,6 +1,7 @@
 #import "AAAppOverviewController.h"
 #import "AAAlertOverviewController.h"
 #import "AADeleteDelegate.h"
+#import <CoreFoundation/CFNotificationCenter.h>
 
 @interface AAAppOverviewController () <UITableViewDelegate, UITableViewDataSource, AADeleteDelegate>
 
@@ -11,14 +12,12 @@
 
 @implementation AAAppOverviewController
 
-extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void);
-
 -(void)viewDidLoad {
     [super viewDidLoad];
 
     self.navigationItem.title = self.app.name;
 
-    self.tableView = [[[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped] autorelease];
+    self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
 
@@ -74,7 +73,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
     AAAlertInfo *info = [self.app.infos objectAtIndex:indexPath.row];
 
     if (!cell) {
-        cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"AlertOverviewCell"] autorelease];
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"AlertOverviewCell"];
     }
 
     cell.textLabel.text = info.title;
@@ -96,7 +95,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     self.selectedIndexPath = indexPath;
 
-    AAAlertOverviewController *ctrl = [[[AAAlertOverviewController alloc] init] autorelease];
+    AAAlertOverviewController *ctrl = [[AAAlertOverviewController alloc] init];
     ctrl.alertInfo = [self.app.infos objectAtIndex:indexPath.row];
     ctrl.appsDict = self.appsDict;
     ctrl.deleteDelegate = self;
@@ -116,10 +115,10 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
         UIAlertAction *deleteAction = [UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
             CFNotificationCenterPostNotification(
-                CFNotificationCenterGetDistributedCenter(), 
-                (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.delete.%@", self.app.infos[indexPath.row].identifier], 
-                NULL, 
-                NULL, 
+                CFNotificationCenterGetDarwinNotifyCenter(),
+                (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.delete.%@", self.app.infos[indexPath.row].identifier],
+                NULL,
+                NULL,
                 YES
             );
 
@@ -140,26 +139,12 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
         [deleteAlert addAction:cancelAction];
 
         UITableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
-        
+
         deleteAlert.popoverPresentationController.sourceView = cell;
         deleteAlert.popoverPresentationController.sourceRect = cell.bounds;
 
         [self presentViewController:deleteAlert animated:YES completion:nil];
     }
-}
-
--(void)dealloc {
-    [self.tableView removeFromSuperview];
-
-    self.tableView = nil;
-
-    self.app = nil;
-
-    self.appsDict = nil;
-
-    self.selectedIndexPath = nil;
-
-    [super dealloc];
 }
 
 @end

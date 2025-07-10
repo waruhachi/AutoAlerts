@@ -1,7 +1,8 @@
 #include "AARootListController.h"
-#import "../AAAlertManager.h"
+#import "../Tweak/AAAlertManager.h"
 #import "AAApp.h"
 #import "AAAppOverviewController.h"
+#import <CoreFoundation/CFNotificationCenter.h>
 
 @interface LSApplicationProxy: NSObject
 
@@ -37,7 +38,7 @@
 
 @implementation AARootListController
 
-extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void);
+extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 
 -(id)init {
     if (self = [super init]) {
@@ -52,7 +53,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 -(void)viewDidLoad {
     [super viewDidLoad];
 
-    self.tableView = [[[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped] autorelease];
+    self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
 
@@ -105,7 +106,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 			NSSortDescriptor *messageSort = [NSSortDescriptor sortDescriptorWithKey:@"message" ascending:YES];
 			NSMutableArray *sortedInfos = [NSMutableArray arrayWithArray:[alertsDict[key] sortedArrayUsingDescriptors:@[titleSort, messageSort]]];
 
-			AAApp *app = [[[AAApp alloc] initWithBundleID:key name:name infos:sortedInfos] autorelease];
+			AAApp *app = [[AAApp alloc] initWithBundleID:key name:name infos:sortedInfos];
 
 			[appEntries addObject:app];
 		}
@@ -125,10 +126,10 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 			self.appsDict = theAppsDict;
 
 			[self.tableView insertRowsAtIndexPaths:indexPaths withRowAnimation:UITableViewRowAnimationAutomatic];
-        });
-    });
+         });
+     });
 
-	self.shouldDelete = NO;
+         self.shouldDelete = NO;
 }
 
 -(void)viewDidAppear:(BOOL)animated {
@@ -171,10 +172,10 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
 		cell.textLabel.text = @"Enabled";
 
-		UISwitch *switchView = [[[UISwitch alloc] initWithFrame:CGRectZero] autorelease];
+		UISwitch *switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
 		[switchView addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 
-		NSUserDefaults *defaults = [[[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"] autorelease];
+		NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
 
 		switchView.on = [defaults objectForKey:@"enabled"] == nil || [defaults boolForKey:@"enabled"];
 
@@ -199,7 +200,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 	self.selectedIndexPath = indexPath;
 
-    AAAppOverviewController *ctrl = [[[AAAppOverviewController alloc] init] autorelease];
+    AAAppOverviewController *ctrl = [[AAAppOverviewController alloc] init];
     ctrl.app = [self.apps objectAtIndex:indexPath.row];
 	ctrl.appsDict = self.appsDict;
 	ctrl.deleteDelegate = self;
@@ -229,7 +230,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
     if (section == 1) {
         return @"Apps with automated alerts will appear here.";
     }
-    
+
     return nil;
 }
 
@@ -243,10 +244,10 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
         UIAlertAction *deleteAction = [UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
             CFNotificationCenterPostNotification(
-                CFNotificationCenterGetDistributedCenter(), 
-                (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.deletewithbundleid.%@", self.apps[indexPath.row].bundleID], 
-                NULL, 
-                NULL, 
+                CFNotificationCenterGetDarwinNotifyCenter(),
+                (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.deletewithbundleid.%@", self.apps[indexPath.row].bundleID],
+                NULL,
+                NULL,
                 YES
             );
 
@@ -259,9 +260,9 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
         [deleteAlert addAction:deleteAction];
         [deleteAlert addAction:cancelAction];
-		
+
 		UITableViewCell *cell = [tableView cellForRowAtIndexPath:indexPath];
-		
+
 		deleteAlert.popoverPresentationController.sourceView = cell;
 		deleteAlert.popoverPresentationController.sourceRect = cell.bounds;
 
@@ -270,31 +271,17 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 }
 
 -(void)switchChanged:(UISwitch *)sender {
-	NSUserDefaults *defaults = [[[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"] autorelease];
+	NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
 
 	[defaults setBool:sender.isOn forKey:@"enabled"];
 
 	CFNotificationCenterPostNotification(
-		CFNotificationCenterGetDistributedCenter(), 
-		(CFStringRef)@"com.shiftcmdk.autoalerts.toggle", 
-		NULL, 
-		NULL, 
+		CFNotificationCenterGetDarwinNotifyCenter(),
+		(CFStringRef)@"com.shiftcmdk.autoalerts.toggle",
+		NULL,
+		NULL,
 		YES
 	);
-}
-
--(void)dealloc {
-    [self.tableView removeFromSuperview];
-
-    self.tableView = nil;
-
-    self.apps = nil;
-
-	self.appsDict = nil;
-
-	self.selectedIndexPath = nil;
-
-    [super dealloc];
 }
 
 @end

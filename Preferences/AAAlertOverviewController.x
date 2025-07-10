@@ -1,4 +1,5 @@
 #import "AAAlertOverviewController.h"
+#import <CoreFoundation/CFNotificationCenter.h>
 
 @interface AAAlertOverviewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -15,22 +16,20 @@
 
 @implementation AAAlertOverviewController
 
-extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void);
-
 -(void)viewDidLoad {
     [super viewDidLoad];
 
     self.navigationItem.title = @"Alert Details";
 
-    UIBarButtonItem *trashItem = [[[UIBarButtonItem alloc] 
-        initWithBarButtonSystemItem:UIBarButtonSystemItemTrash 
-        target:self 
+    UIBarButtonItem *trashItem = [[UIBarButtonItem alloc]
+        initWithBarButtonSystemItem:UIBarButtonSystemItemTrash
+        target:self
         action:@selector(deleteAlert:)
-    ] autorelease];
+    ];
 
     self.navigationItem.rightBarButtonItem = trashItem;
 
-    self.tableView = [[[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped] autorelease];
+    self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
 
@@ -90,10 +89,10 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
 -(void)postDeleteNotificationAndPopViewController {
     CFNotificationCenterPostNotification(
-        CFNotificationCenterGetDistributedCenter(), 
-        (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.delete.%@", self.alertInfo.identifier], 
-        NULL, 
-        NULL, 
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.delete.%@", self.alertInfo.identifier],
+        NULL,
+        NULL,
         YES
     );
 
@@ -191,7 +190,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
             cell = [tableView dequeueReusableCellWithIdentifier:@"TextFieldCell"];
 
             if (!cell) {
-                cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"TextFieldCell"] autorelease];
+                cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"TextFieldCell"];
             }
 
             cell.textLabel.text = [NSString stringWithFormat:@"Text Field %i", (int)indexPath.row + 1];
@@ -200,7 +199,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
             cell = [tableView dequeueReusableCellWithIdentifier:@"AppCell"];
 
             if (!cell) {
-                cell = [[[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"AppCell"] autorelease];
+                cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"AppCell"];
             }
 
             NSString *bundleID = self.sortedBundleIDs[indexPath.row];
@@ -224,7 +223,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
             cell.detailTextLabel.text = actionString;
         } else {
-            cell = [[[UITableViewCell alloc] init] autorelease];
+            cell = [[UITableViewCell alloc] init];
         }
     }
 
@@ -290,13 +289,13 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
             [dict setObject:self.alertInfo.customAppActions forKey:@"customappactions"];
 
             NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dict options:0 error:nil];
-            NSString *jsonString = [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] autorelease];
+            NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 
             CFNotificationCenterPostNotification(
-                CFNotificationCenterGetDistributedCenter(), 
-                (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.save.%@ %@", self.alertInfo.bundleID, jsonString], 
-                NULL, 
-                NULL, 
+                CFNotificationCenterGetDarwinNotifyCenter(),
+                (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.save.%@ %@", self.alertInfo.bundleID, jsonString],
+                NULL,
+                NULL,
                 YES
             );
         } else {
@@ -305,22 +304,6 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
         [tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
     }
-}
-
--(void)dealloc {
-    [self.tableView removeFromSuperview];
-
-    self.tableView = nil;
-
-    self.alertInfo = nil;
-
-    self.visibleSections = nil;
-
-    self.appsDict = nil;
-
-    self.sortedBundleIDs = nil;
-
-    [super dealloc];
 }
 
 @end

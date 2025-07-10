@@ -2,6 +2,6 @@
 
 @protocol AAConfigurationViewControllerDelegate <NSObject>
 
--(void)saveAndRunAction:(int)action;
+- (void)saveAndRunAction:(int)action;
 
 @end

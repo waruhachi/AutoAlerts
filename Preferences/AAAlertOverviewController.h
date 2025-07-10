@@ -1,11 +1,12 @@
 #import <Preferences/PSViewController.h>
-#import "AAApp.h"
+
+#import "../Model/AAAlertInfo.h"
 #import "AADeleteDelegate.h"
 
-@interface AAAppOverviewController : PSViewController
+@interface AAAlertOverviewController : PSViewController
 
 @property (nonatomic, retain) UITableView *tableView;
-@property (nonatomic, retain) AAApp *app;
+@property (nonatomic, retain) AAAlertInfo *alertInfo;
 @property (nonatomic, retain) NSMutableDictionary<NSString *, NSString *> *appsDict;
 @property (nonatomic, assign) id<AADeleteDelegate> deleteDelegate;
 

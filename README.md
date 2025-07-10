@@ -5,12 +5,12 @@ Automate alert actions on iOS.
 Inspired by: http://cydia.saurik.com/package/org.thebigboss.automa/
 
 <p float="left">
-  <img src="settings_alert.PNG" width="300"/>
-  <img src="settings_action.PNG" width="300"/>
+  <img src="Resources/settings_alert.PNG" width="300"/>
+  <img src="Resources/settings_action.PNG" width="300"/>
 </p>
 <p float="left">
-  <img src="mail_alert.PNG" width="300"/>
-  <img src="mail_action.PNG" width="300"/>
+  <img src="Resources/mail_alert.PNG" width="300"/>
+  <img src="Resources/mail_action.PNG" width="300"/>
 </p>
 
 ## Using Core Data in a tweak
@@ -25,13 +25,13 @@ Inspired by: http://cydia.saurik.com/package/org.thebigboss.automa/
 4. Create a NSManagedObjectModel.
     ```Objective-C
     NSURL *url = [NSURL fileURLWithPath:@"/path/to/yourmodel.momd"];
-    
+
     NSManagedObjectModel *model = [[[NSManagedObjectModel alloc] initWithContentsOfURL:url] autorelease];
     ```
 5. Create a store description and the persistent container.
     ```Objective-C
     NSURL *storeURL = [NSURL fileURLWithPath:@"path/to/some/directory/yourmodel.sqlite"];
-		
+
     NSPersistentStoreDescription *prop = [[[NSPersistentStoreDescription alloc] initWithURL:storeURL] autorelease];
 
     self.container = [[[NSPersistentContainer alloc] initWithName:@"yourmodel" managedObjectModel:model] autorelease];

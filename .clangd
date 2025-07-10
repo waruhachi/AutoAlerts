@@ -1,0 +1,26 @@
+CompileFlags:
+  Add:
+    [
+      -include,
+      /home/vscode/theos/Prefix.pch,
+      -isysroot,
+      "/home/vscode/theos/sdks/iPhoneOS16.5.sdk/",
+      -I/home/vscode/theos/vendor/headers,
+      -I/home/vscode/theos/vendor/include,
+      -F/home/vscode/theos/vendor/lib,
+      -F/home/vscode/theos/sdks/iPhoneOS16.5.sdk/System/Library/PrivateFrameworks,
+      -target,
+      arm64-apple-ios14.5,
+      -fmodules,
+      -fcxx-modules,
+    ]
+
+Diagnostics:
+  Suppress: [
+    undeclared_var_use,
+    atimport,
+    undef_superclass,
+    unexpected_at,
+    modules_import_nested_redundant,
+    cxx_modules_disabled
+  ]

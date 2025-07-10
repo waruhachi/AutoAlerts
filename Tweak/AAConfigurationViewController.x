@@ -1,6 +1,7 @@
 #import "AAConfigurationViewController.h"
 #import "AAAppIconCell.h"
 #import "CoreData/CoreData.h"
+#import <CoreFoundation/CFNotificationCenter.h>
 
 @interface AAConfigurationViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -35,8 +36,6 @@
 
 @implementation AAConfigurationViewController
 
-extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void);
-
 -(id)initWithActions:(NSArray<NSString *> *)actions title:(NSString *)title message:(NSString *)message textFieldValues:(NSArray<NSString *> *)textFieldValues customAppActions:(NSDictionary<NSString *, NSNumber *> *)customAppActions secure:(BOOL)secure {
     if (self = [super init]) {
         self.actions = actions;
@@ -47,7 +46,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
         self.textFieldValues = textFieldValues;
         self.customAppActions = customAppActions;
 
-        self.fakeNavBar = [[[UIView alloc] init] autorelease];
+        self.fakeNavBar = [[UIView alloc] init];
         if (@available(iOS 13, *)) {
             self.fakeNavBar.backgroundColor = [UIColor systemBackgroundColor];
         } else {
@@ -56,7 +55,7 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
         [self.view addSubview:self.fakeNavBar];
 
-        self.titleLabel = [[[UILabel alloc] init] autorelease];
+        self.titleLabel = [[UILabel alloc] init];
         self.titleLabel.text = @"Alert settings";
         self.titleLabel.font = [UIFont systemFontOfSize:17.0 weight:UIFontWeightSemibold];
 
@@ -79,14 +78,14 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
         self.isSpringBoard = [[NSBundle mainBundle].bundleIdentifier isEqual:@"com.apple.springboard"];
         self.secure = secure;
     }
-    
+
     return self;
 }
 
 -(void)viewDidLoad {
     [super viewDidLoad];
 
-    self.tableView = [[[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped] autorelease];
+    self.tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStyleGrouped];
     self.tableView.translatesAutoresizingMaskIntoConstraints = NO;
     if (@available(iOS 13, *)) {
         self.tableView.backgroundColor = [UIColor systemBackgroundColor];
@@ -112,16 +111,15 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
 -(void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
-    
+
     CGFloat statusBarHeight;
 
     if (self.isSpringBoard) {
-        statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.height;
-    } else {
-        if (@available(iOS 11.0, *)) {
-        statusBarHeight = self.view.safeAreaInsets.top;
+        if (@available(iOS 13.0, *)) {
+            UIStatusBarManager *statusBarManager = [UIApplication sharedApplication].windows.firstObject.windowScene.statusBarManager;
+            statusBarHeight = statusBarManager.statusBarFrame.size.height;
         } else {
-            statusBarHeight = [[UIApplication sharedApplication] statusBarFrame].size.height;
+            statusBarHeight = self.view.safeAreaInsets.top;
         }
     }
 
@@ -211,15 +209,15 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
     [dict setObject:appActions forKey:@"customappactions"];
 
     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dict options:0 error:nil];
-    NSString *jsonString = [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] autorelease];
+    NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 
     NSString *bundleID = [NSBundle mainBundle].bundleIdentifier;
 
     CFNotificationCenterPostNotification(
-        CFNotificationCenterGetDistributedCenter(), 
-        (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.save.%@ %@", bundleID, jsonString], 
-        NULL, 
-        NULL, 
+        CFNotificationCenterGetDarwinNotifyCenter(),
+        (CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.save.%@ %@", bundleID, jsonString],
+        NULL,
+        NULL,
         YES
     );
 }
@@ -252,13 +250,13 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
     }];
 
     UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * action) {
-        
+
     }];
 
     [alert addAction:saveAction];
     [alert addAction:saveAndRunAction];
     [alert addAction:cancelAction];
-    
+
     alert.popoverPresentationController.sourceView = self.doneButton;
     alert.popoverPresentationController.sourceRect = self.doneButton.bounds;
 
@@ -406,14 +404,14 @@ extern "C" CFNotificationCenterRef CFNotificationCenterGetDistributedCenter(void
 
 - (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
     if (section == 0) {
-        return [[[UIView alloc] initWithFrame:CGRectZero] autorelease];
+        return [[UIView alloc] initWithFrame:CGRectZero];
     }
     return nil;
 }
 
 - (UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section {
     if (section == 0) {
-        return [[[UIView alloc] initWithFrame:CGRectZero] autorelease];
+        return [[UIView alloc] initWithFrame:CGRectZero];
     }
     return nil;
 }
