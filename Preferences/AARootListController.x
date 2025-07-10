@@ -3,6 +3,7 @@
 #import "AAApp.h"
 #import "AAAppOverviewController.h"
 #import <CoreFoundation/CFNotificationCenter.h>
+#import <UIKit/UIKit.h>
 
 @interface LSApplicationProxy: NSObject
 
@@ -161,53 +162,71 @@ extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
 	if (section == 0) {
-		return 1;
+       return 2;
 	}
     return self.apps.count;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-	if (indexPath.section == 0) {
-		UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EnabledCell" forIndexPath:indexPath];
+    if (indexPath.section == 0) {
+       if (indexPath.row == 0) {
+           UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"EnabledCell" forIndexPath:indexPath];
+           cell.textLabel.text = @"Enabled";
+           UISwitch *switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
+           [switchView addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 
-		cell.textLabel.text = @"Enabled";
+            NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
 
-		UISwitch *switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
-		[switchView addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
+            switchView.on = [defaults objectForKey:@"enabled"] == nil || [defaults boolForKey:@"enabled"];
 
-		NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
+            cell.accessoryView = switchView;
 
-		switchView.on = [defaults objectForKey:@"enabled"] == nil || [defaults boolForKey:@"enabled"];
+           return cell;
+       } else {
+           UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"TestAlertCell"];
+           if (!cell) {
+               cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:@"TestAlertCell"];
+               cell.textLabel.textAlignment = NSTextAlignmentCenter;
+           }
+           cell.textLabel.text = @"Show Test Alert";
+           return cell;
+       }
+    } else {
+        UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"AppCell" forIndexPath:indexPath];
 
-		cell.accessoryView = switchView;
+        AAApp *app = [self.apps objectAtIndex:indexPath.row];
 
-		return cell;
-	} else {
-		UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"AppCell" forIndexPath:indexPath];
+        UIImage *icon = [UIImage _applicationIconImageForBundleIdentifier:app.bundleID format:0 scale:[UIScreen mainScreen].scale];
 
-		AAApp *app = [self.apps objectAtIndex:indexPath.row];
+        cell.imageView.image = icon;
+        cell.textLabel.text = app.name;
+        cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
 
-		UIImage *icon = [UIImage _applicationIconImageForBundleIdentifier:app.bundleID format:0 scale:[UIScreen mainScreen].scale];
-
-		cell.imageView.image = icon;
-		cell.textLabel.text = app.name;
-		cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
-
-		return cell;
-	}
+        return cell;
+    }
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-	self.selectedIndexPath = indexPath;
-
-    AAAppOverviewController *ctrl = [[AAAppOverviewController alloc] init];
-    ctrl.app = [self.apps objectAtIndex:indexPath.row];
-	ctrl.appsDict = self.appsDict;
-	ctrl.deleteDelegate = self;
-
-    [self pushController:ctrl animate:YES];
-
-	[tableView deselectRowAtIndexPath:indexPath animated:YES];
+    if (indexPath.section == 0 && indexPath.row == 1) {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Alert test"
+                                                                       message:@"Long press me!!!"
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Option 1" style:UIAlertActionStyleDefault handler:nil]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Option 2" style:UIAlertActionStyleDefault handler:nil]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Option 3" style:UIAlertActionStyleDefault handler:nil]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+        [tableView deselectRowAtIndexPath:indexPath animated:YES];
+        return;
+    } else if (indexPath.section == 1) {
+        self.selectedIndexPath = indexPath;
+        AAAppOverviewController *ctrl = [[AAAppOverviewController alloc] init];
+        ctrl.app = [self.apps objectAtIndex:indexPath.row];
+        ctrl.appsDict = self.appsDict;
+        ctrl.deleteDelegate = self;
+        [self pushController:ctrl animate:YES];
+        [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    }
 }
 
 -(NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
