@@ -1,6 +1,6 @@
 #import "AAAlertManager.h"
-#import "AACoreDataStack.h"
 #import "AADataStore.h"
+#import "AAUserDefaultsStore.h"
 
 @interface AAAlertManager ()
 
@@ -23,7 +23,7 @@
 	static AAAlertManager *sharedManager = nil;
 	static dispatch_once_t onceToken;
 	dispatch_once(&onceToken, ^{
-		id store = [[AACoreDataStack alloc] init];
+		id<AADataStore> store = [[AAUserDefaultsStore alloc] init];
 
 		sharedManager = [[AAAlertManager alloc] initWithDataStore:store];
 	});
