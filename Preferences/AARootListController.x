@@ -32,8 +32,6 @@
 
 @property (nonatomic, retain) NSMutableArray<AAApp *> *apps;
 @property (nonatomic, retain) NSMutableDictionary<NSString *, NSString *> *appsDict;
-@property (nonatomic, assign) BOOL shouldDelete;
-@property (nonatomic, retain) NSIndexPath *selectedIndexPath;
 
 @end
 
@@ -41,14 +39,46 @@
 
 extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 
+static void preferencesNotificationCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
+	AARootListController *controller = (__bridge AARootListController *)observer;
+
+	NSString *prefix = @"com.shiftcmdk.autoalerts.save.";
+	NSString *deletePrefix = @"com.shiftcmdk.autoalerts.delete.";
+	NSString *deleteWithBundleIDPrefix = @"com.shiftcmdk.autoalerts.deletewithbundleid.";
+
+	if ([(__bridge NSString *)name hasPrefix:prefix] ||
+		[(__bridge NSString *)name hasPrefix:deletePrefix] ||
+		[(__bridge NSString *)name hasPrefix:deleteWithBundleIDPrefix]) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[controller reloadData];
+		});
+	}
+}
+
 - (id)init {
 	if (self = [super init]) {
 		self.navigationItem.title = @"AutoAlerts";
 
 		[[AAAlertManager sharedManager] initialize];
+
+		CFNotificationCenterAddObserver(
+			CFNotificationCenterGetDarwinNotifyCenter(),
+			(__bridge const void *)(self),
+			preferencesNotificationCallback,
+			NULL,
+			NULL,
+			CFNotificationSuspensionBehaviorDeliverImmediately);
 	}
 
 	return self;
+}
+
+- (void)dealloc {
+	CFNotificationCenterRemoveObserver(
+		CFNotificationCenterGetDarwinNotifyCenter(),
+		(__bridge const void *)(self),
+		NULL,
+		NULL);
 }
 
 - (void)viewDidLoad {
@@ -67,6 +97,10 @@ extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 
 	self.apps = [NSMutableArray array];
 
+	[self reloadData];
+}
+
+- (void)reloadData {
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NSArray<LSApplicationProxy *> *apps = [[%c(LSApplicationWorkspace) defaultWorkspace] allApplications];
 
@@ -115,45 +149,32 @@ extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 		NSSortDescriptor *sort = [NSSortDescriptor sortDescriptorWithKey:@"name" ascending:YES];
 		NSMutableArray *tempApps = [NSMutableArray arrayWithArray:[appEntries sortedArrayUsingDescriptors:@[sort]]];
 
-		NSMutableArray *indexPaths = [NSMutableArray array];
-
-		for (int i = 0; i < tempApps.count; i++) {
-			[indexPaths addObject:[NSIndexPath indexPathForRow:i inSection:1]];
-		}
-
 		dispatch_async(dispatch_get_main_queue(), ^{
 			self.apps = tempApps;
-
 			self.appsDict = theAppsDict;
 
-			[self.tableView insertRowsAtIndexPaths:indexPaths withRowAnimation:UITableViewRowAnimationAutomatic];
+			NSIndexSet *sectionsToReload = [NSIndexSet indexSetWithIndex:1];
+			[self.tableView reloadSections:sectionsToReload withRowAnimation:UITableViewRowAnimationAutomatic];
 		});
 	});
+}
 
-	self.shouldDelete = NO;
+- (void)didDelete {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[self reloadData];
+	});
 }
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
 
-	if (self.shouldDelete && self.selectedIndexPath) {
-		[self.apps removeObjectAtIndex:self.selectedIndexPath.row];
-
-		[self.tableView deleteRowsAtIndexPaths:@[self.selectedIndexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
-
-		self.shouldDelete = NO;
-		self.selectedIndexPath = nil;
-	}
+	[self reloadData];
 }
 
 - (void)viewDidLayoutSubviews {
 	[super viewDidLayoutSubviews];
 
 	self.tableView.frame = self.view.bounds;
-}
-
-- (void)didDelete {
-	self.shouldDelete = YES;
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
@@ -176,9 +197,10 @@ extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 		UISwitch *switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
 		[switchView addTarget:self action:@selector(switchChanged:) forControlEvents:UIControlEventValueChanged];
 
-		NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
+		NSString *prefsPath = @"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist";
+		NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:prefsPath];
 
-		switchView.on = [defaults objectForKey:@"enabled"] == nil || [defaults boolForKey:@"enabled"];
+		switchView.on = !prefs || [prefs objectForKey:@"enabled"] == nil || [[prefs objectForKey:@"enabled"] boolValue];
 
 		cell.accessoryView = switchView;
 
@@ -199,8 +221,6 @@ extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-	self.selectedIndexPath = indexPath;
-
 	AAAppOverviewController *ctrl = [[AAAppOverviewController alloc] init];
 	ctrl.app = [self.apps objectAtIndex:indexPath.row];
 	ctrl.appsDict = self.appsDict;
@@ -244,16 +264,28 @@ extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 		UIAlertController *deleteAlert = [UIAlertController alertControllerWithTitle:@"Delete alerts" message:[NSString stringWithFormat:@"Do you really want to delete all automated alerts for %@?", self.apps[indexPath.row].name] preferredStyle:UIAlertControllerStyleActionSheet];
 
 		UIAlertAction *deleteAction = [UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+			if (indexPath.row >= self.apps.count) {
+				[self reloadData];
+				return;
+			}
+
+			AAApp *appToDelete = self.apps[indexPath.row];
+
+			NSError *deleteError = nil;
+			[[AAAlertManager sharedManager] deleteAlertsWithBundleID:appToDelete.bundleID error:&deleteError];
+
+			if (deleteError) {
+				return;
+			}
+
 			CFNotificationCenterPostNotification(
 				CFNotificationCenterGetDarwinNotifyCenter(),
-				(CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.deletewithbundleid.%@", self.apps[indexPath.row].bundleID],
+				(CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.deletewithbundleid.%@", appToDelete.bundleID],
 				NULL,
 				NULL,
 				YES);
 
-			[self.apps removeObjectAtIndex:indexPath.row];
-
-			[tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
+			[self reloadData];
 		}];
 
 		UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
@@ -271,9 +303,16 @@ extern CFNotificationCenterRef CFNotificationCenterGetDarwinNotifyCenter(void);
 }
 
 - (void)switchChanged:(UISwitch *)sender {
-	NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
+	NSString *prefsPath = @"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist";
+	NSMutableDictionary *prefs = [NSMutableDictionary dictionaryWithContentsOfFile:prefsPath];
 
-	[defaults setBool:sender.isOn forKey:@"enabled"];
+	if (!prefs) {
+		prefs = [NSMutableDictionary dictionary];
+	}
+
+	[prefs setObject:@(sender.isOn) forKey:@"enabled"];
+
+	[prefs writeToFile:prefsPath atomically:YES];
 
 	CFNotificationCenterPostNotification(
 		CFNotificationCenterGetDarwinNotifyCenter(),

@@ -20,8 +20,6 @@ BOOL autoAlertsEnabled = YES;
 		return;
 	}
 
-	NSLog(@"[AutoAlerts] is automated: %i alert info: %@ custom app actions: %@", self.automated, self.alertInfo, self.alertInfo ? self.alertInfo.customAppActions : nil);
-
 	self.view.hidden = self.automated;
 	self._dimmingView.hidden = self.automated;
 
@@ -235,23 +233,27 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
 	NSString *deletePrefix = @"com.shiftcmdk.autoalerts.delete.";
 	NSString *deleteWithBundleIDPrefix = @"com.shiftcmdk.autoalerts.deletewithbundleid.";
 
-	if ([(NSString *)name hasPrefix:prefix]) {
-		NSString *stripped = [(NSString *)name substringFromIndex:[prefix length]];
+	if ([(__bridge NSString *)name hasPrefix:prefix]) {
+		NSString *stripped = [(__bridge NSString *)name substringFromIndex:[prefix length]];
 		NSString *bundleID;
 
 		NSScanner *scanner = [NSScanner scannerWithString:stripped];
 		[scanner scanUpToString:@" " intoString:&bundleID];
 
+		NSString *currentBundleID = [NSBundle mainBundle].bundleIdentifier;
+
+		if ([bundleID isEqualToString:currentBundleID]) {
+			return;
+		}
+
 		NSString *prefixWithBundleID = [NSString stringWithFormat:@"%@%@ ", prefix, bundleID];
 
-		NSString *content = [(NSString *)name substringFromIndex:prefixWithBundleID.length];
+		NSString *content = [(__bridge NSString *)name substringFromIndex:prefixWithBundleID.length];
 
 		NSData *jsonData = [content dataUsingEncoding:NSUTF8StringEncoding];
 
 		NSError *error = nil;
 		NSDictionary *jsonDict = [NSJSONSerialization JSONObjectWithData:jsonData options:0 error:&error];
-
-		NSLog(@"[AutoAlerts] content: %@", jsonDict);
 
 		if (!error) {
 			NSArray *actions = [jsonDict objectForKey:@"actions"];
@@ -264,59 +266,55 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
 			AAAlertInfo *info = [[AAAlertInfo alloc] initWithActions:actions title:title message:message textFieldValues:textFieldValues selectedAction:selectedAction customAppActions:customAppActions bundleID:bundleID];
 
 			[[AAAlertManager sharedManager] saveAlert:info error:nil];
-
-			NSLog(@"[AutoAlerts] saved alert: %@", [[AAAlertManager sharedManager] alertWithID:info.identifier]);
 		}
-	} else if ([(NSString *)name hasPrefix:deletePrefix]) {
-		NSString *alertID = [(NSString *)name substringFromIndex:[deletePrefix length]];
+	} else if ([(__bridge NSString *)name hasPrefix:deletePrefix]) {
+		NSString *alertID = [(__bridge NSString *)name substringFromIndex:[deletePrefix length]];
 
-		NSLog(@"[AutoAlerts] delete: %@", alertID);
+		NSString *currentBundleID = [NSBundle mainBundle].bundleIdentifier;
+		if ([currentBundleID isEqualToString:@"com.apple.Preferences"]) {
+			return;
+		}
 
 		[[AAAlertManager sharedManager] deleteAlertWithID:alertID error:nil];
-	} else if ([(NSString *)name hasPrefix:deleteWithBundleIDPrefix]) {
-		NSString *bundleID = [(NSString *)name substringFromIndex:[deleteWithBundleIDPrefix length]];
+	} else if ([(__bridge NSString *)name hasPrefix:deleteWithBundleIDPrefix]) {
+		NSString *bundleID = [(__bridge NSString *)name substringFromIndex:[deleteWithBundleIDPrefix length]];
 
-		NSLog(@"[AutoAlerts] delete bundle id: %@", bundleID);
+		NSString *currentBundleID = [NSBundle mainBundle].bundleIdentifier;
+		if ([currentBundleID isEqualToString:@"com.apple.Preferences"]) {
+			return;
+		}
 
 		[[AAAlertManager sharedManager] deleteAlertsWithBundleID:bundleID error:nil];
-	} else if ([(NSString *)name isEqual:@"com.shiftcmdk.autoalerts.toggle"]) {
-		NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:@"com.shiftcmdk.autoalertspreferences"];
+	} else if ([(__bridge NSString *)name isEqual:@"com.shiftcmdk.autoalerts.toggle"]) {
+		NSString *prefsPath = @"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist";
+		NSDictionary *prefs = [NSDictionary dictionaryWithContentsOfFile:prefsPath];
 
-		autoAlertsEnabled = [defaults objectForKey:@"enabled"] == nil || [defaults boolForKey:@"enabled"];
-
-		NSLog(@"[AutoAlerts] toggle: %i", autoAlertsEnabled);
+		autoAlertsEnabled = !prefs || [prefs objectForKey:@"enabled"] == nil || [[prefs objectForKey:@"enabled"] boolValue];
 	}
 }
 
 static void *sbObserver = NULL;
 
 %ctor {
-	BOOL isSpringBoard = [[NSBundle mainBundle].bundleIdentifier isEqual:@"com.apple.springboard"];
-
-	NSDictionary *prefsDict = [NSDictionary dictionaryWithContentsOfFile:jbroot(@"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist")];
+	NSString *prefsPath = @"/var/mobile/Library/Preferences/com.shiftcmdk.autoalertspreferences.plist";
+	NSDictionary *prefsDict = [NSDictionary dictionaryWithContentsOfFile:prefsPath];
 	autoAlertsEnabled = !prefsDict || [prefsDict objectForKey:@"enabled"] == nil || [[prefsDict objectForKey:@"enabled"] boolValue];
 
 	[[AAAlertManager sharedManager] initialize];
 
-	if (isSpringBoard) {
-		CFNotificationCenterAddObserver(
-			CFNotificationCenterGetDarwinNotifyCenter(),
-			&sbObserver,
-			notificationCallback,
-			NULL,
-			NULL,
-			CFNotificationSuspensionBehaviorDeliverImmediately);
-	}
+	CFNotificationCenterAddObserver(
+		CFNotificationCenterGetDarwinNotifyCenter(),
+		&sbObserver,
+		notificationCallback,
+		NULL,
+		NULL,
+		CFNotificationSuspensionBehaviorDeliverImmediately);
 }
 
 %dtor {
-	BOOL isSpringBoard = [[NSBundle mainBundle].bundleIdentifier isEqual:@"com.apple.springboard"];
-
-	if (isSpringBoard) {
-		CFNotificationCenterRemoveObserver(
-			CFNotificationCenterGetDarwinNotifyCenter(),
-			&sbObserver,
-			NULL,
-			NULL);
-	}
+	CFNotificationCenterRemoveObserver(
+		CFNotificationCenterGetDarwinNotifyCenter(),
+		&sbObserver,
+		NULL,
+		NULL);
 }

@@ -1,5 +1,6 @@
 #import <CoreFoundation/CFNotificationCenter.h>
 
+#import "AAAlertManager.h"
 #import "AAAppIconCell.h"
 #import "AAConfigurationViewController.h"
 #import "CoreData/CoreData.h"
@@ -203,14 +204,28 @@
 
 	[dict setObject:appActions forKey:@"customappactions"];
 
+	NSString *bundleID = [NSBundle mainBundle].bundleIdentifier;
+
+	NSArray *actions = [dict objectForKey:@"actions"];
+	NSString *title = [dict objectForKey:@"title"];
+	NSString *message = [dict objectForKey:@"message"];
+	int selectedAction = [[dict objectForKey:@"selectedaction"] intValue];
+	NSArray *textFieldValues = [dict objectForKey:@"textfieldvalues"];
+	NSMutableDictionary *customAppActions = [dict objectForKey:@"customappactions"];
+
+	AAAlertInfo *info = [[AAAlertInfo alloc] initWithActions:actions title:title message:message textFieldValues:textFieldValues selectedAction:selectedAction customAppActions:customAppActions bundleID:bundleID];
+
+	NSError *saveError = nil;
+	[[AAAlertManager sharedManager] saveAlert:info error:&saveError];
+
 	NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dict options:0 error:nil];
 	NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 
-	NSString *bundleID = [NSBundle mainBundle].bundleIdentifier;
+	NSString *notificationName = [NSString stringWithFormat:@"com.shiftcmdk.autoalerts.save.%@ %@", bundleID, jsonString];
 
 	CFNotificationCenterPostNotification(
 		CFNotificationCenterGetDarwinNotifyCenter(),
-		(CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.save.%@ %@", bundleID, jsonString],
+		(CFStringRef)notificationName,
 		NULL,
 		NULL,
 		YES);
@@ -243,9 +258,7 @@
 		}];
 	}];
 
-	UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action){
-
-	}];
+	UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction *action){}];
 
 	[alert addAction:saveAction];
 	[alert addAction:saveAndRunAction];

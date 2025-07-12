@@ -1,13 +1,12 @@
 #import <CoreFoundation/CFNotificationCenter.h>
 
+#import "../Tweak/AAAlertManager.h"
 #import "AAAlertOverviewController.h"
 #import "AAAppOverviewController.h"
 #import "AADeleteDelegate.h"
+#import "AARootListController.h"
 
 @interface AAAppOverviewController () <UITableViewDelegate, UITableViewDataSource, AADeleteDelegate>
-
-@property (nonatomic, assign) BOOL shouldDelete;
-@property (nonatomic, retain) NSIndexPath *selectedIndexPath;
 
 @end
 
@@ -23,31 +22,24 @@
 	self.tableView.dataSource = self;
 
 	[self.view addSubview:self.tableView];
-
-	self.shouldDelete = NO;
 }
 
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
 
-	if (self.shouldDelete && self.selectedIndexPath) {
-		if (self.app.infos.count == 1) {
-			[self.app.infos removeObjectAtIndex:self.selectedIndexPath.row];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		NSArray<AAAlertInfo *> *allAlerts = [[AAAlertManager sharedManager] allAlerts];
+		NSMutableArray<AAAlertInfo *> *alertsForThisApp = [NSMutableArray array];
 
-			if (self.deleteDelegate) {
-				[self.deleteDelegate didDelete];
+		for (AAAlertInfo *alert in allAlerts) {
+			if ([alert.bundleID isEqualToString:self.app.bundleID]) {
+				[alertsForThisApp addObject:alert];
 			}
-
-			[self.navigationController popViewControllerAnimated:YES];
-		} else {
-			[self.app.infos removeObjectAtIndex:self.selectedIndexPath.row];
-
-			[self.tableView deleteRowsAtIndexPaths:@[self.selectedIndexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
-
-			self.shouldDelete = NO;
-			self.selectedIndexPath = nil;
 		}
-	}
+
+		self.app.infos = alertsForThisApp;
+		[self.tableView reloadData];
+	});
 }
 
 - (void)viewDidLayoutSubviews {
@@ -57,7 +49,33 @@
 }
 
 - (void)didDelete {
-	self.shouldDelete = YES;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		NSArray<AAAlertInfo *> *allAlerts = [[AAAlertManager sharedManager] allAlerts];
+		NSMutableArray<AAAlertInfo *> *alertsForThisApp = [NSMutableArray array];
+
+		for (AAAlertInfo *alert in allAlerts) {
+			if ([alert.bundleID isEqualToString:self.app.bundleID]) {
+				[alertsForThisApp addObject:alert];
+			}
+		}
+
+		self.app.infos = alertsForThisApp;
+
+		if (alertsForThisApp.count == 0) {
+			for (UIViewController *vc in self.navigationController.viewControllers) {
+				if ([vc isKindOfClass:[AARootListController class]]) {
+					[self.navigationController popToViewController:vc animated:YES];
+					return;
+				}
+			}
+			if (self.deleteDelegate) {
+				[self.deleteDelegate didDelete];
+			}
+			[self.navigationController popViewControllerAnimated:YES];
+		} else {
+			[self.tableView reloadData];
+		}
+	});
 }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
@@ -94,8 +112,6 @@
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-	self.selectedIndexPath = indexPath;
-
 	AAAlertOverviewController *ctrl = [[AAAlertOverviewController alloc] init];
 	ctrl.alertInfo = [self.app.infos objectAtIndex:indexPath.row];
 	ctrl.appsDict = self.appsDict;
@@ -115,21 +131,51 @@
 		UIAlertController *deleteAlert = [UIAlertController alertControllerWithTitle:@"Delete alert" message:@"Do you really want to delete this automated alert?" preferredStyle:UIAlertControllerStyleActionSheet];
 
 		UIAlertAction *deleteAction = [UIAlertAction actionWithTitle:@"Delete" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+			if (indexPath.row >= self.app.infos.count) {
+				[self.tableView reloadData];
+				return;
+			}
+
+			AAAlertInfo *alertToDelete = self.app.infos[indexPath.row];
+
+			NSError *deleteError = nil;
+			[[AAAlertManager sharedManager] deleteAlertWithID:alertToDelete.identifier error:&deleteError];
+
+			if (deleteError) {
+				return;
+			}
+
 			CFNotificationCenterPostNotification(
 				CFNotificationCenterGetDarwinNotifyCenter(),
-				(CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.delete.%@", self.app.infos[indexPath.row].identifier],
+				(CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.delete.%@", alertToDelete.identifier],
 				NULL,
 				NULL,
 				YES);
 
-			[self.app.infos removeObjectAtIndex:indexPath.row];
+			NSArray<AAAlertInfo *> *allAlerts = [[AAAlertManager sharedManager] allAlerts];
+			NSMutableArray<AAAlertInfo *> *alertsForThisApp = [NSMutableArray array];
 
-			[tableView deleteRowsAtIndexPaths:@[indexPath] withRowAnimation:UITableViewRowAnimationAutomatic];
+			for (AAAlertInfo *alert in allAlerts) {
+				if ([alert.bundleID isEqualToString:self.app.bundleID]) {
+					[alertsForThisApp addObject:alert];
+				}
+			}
 
-			if (self.deleteDelegate && self.app.infos.count == 0) {
-				[self.deleteDelegate didDelete];
+			self.app.infos = alertsForThisApp;
 
+			if (alertsForThisApp.count == 0) {
+				for (UIViewController *vc in self.navigationController.viewControllers) {
+					if ([vc isKindOfClass:[AARootListController class]]) {
+						[self.navigationController popToViewController:vc animated:YES];
+						return;
+					}
+				}
+				if (self.deleteDelegate) {
+					[self.deleteDelegate didDelete];
+				}
 				[self.navigationController popViewControllerAnimated:YES];
+			} else {
+				[self.tableView reloadData];
 			}
 		}];
 

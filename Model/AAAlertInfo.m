@@ -18,7 +18,7 @@
 			[actionsString appendString:value];
 		}
 
-		self.identifier = [NSString stringWithFormat:@"%@%@%@t_%ia_%i_%@", self.title, self.message, actionsString, (int)self.textFieldValues.count, (int)self.actions.count, self.bundleID];
+		self.identifier = [NSString stringWithFormat:@"%@%@t_%ia_%i_%@", self.title, actionsString, (int)self.textFieldValues.count, (int)self.actions.count, self.bundleID];
 	}
 
 	return self;

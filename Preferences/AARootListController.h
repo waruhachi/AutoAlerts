@@ -1,4 +1,5 @@
 #import <Preferences/PSViewController.h>
+#import <roothide/stub.h>
 
 @interface AARootListController : PSViewController
 

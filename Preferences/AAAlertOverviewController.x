@@ -1,6 +1,8 @@
 #import <CoreFoundation/CFNotificationCenter.h>
 
+#import "../Tweak/AAAlertManager.h"
 #import "AAAlertOverviewController.h"
+#import "AARootListController.h"
 
 @interface AAAlertOverviewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -88,6 +90,9 @@
 }
 
 - (void)postDeleteNotificationAndPopViewController {
+	NSError *deleteError = nil;
+	[[AAAlertManager sharedManager] deleteAlertWithID:self.alertInfo.identifier error:&deleteError];
+
 	CFNotificationCenterPostNotification(
 		CFNotificationCenterGetDarwinNotifyCenter(),
 		(CFStringRef)[NSString stringWithFormat:@"com.shiftcmdk.autoalerts.delete.%@", self.alertInfo.identifier],
@@ -95,11 +100,114 @@
 		NULL,
 		YES);
 
-	if (self.deleteDelegate) {
-		[self.deleteDelegate didDelete];
+	NSArray<AAAlertInfo *> *remainingAlerts = [[AAAlertManager sharedManager] allAlerts];
+	BOOL hasAlertsForThisApp = NO;
+
+	for (AAAlertInfo *alert in remainingAlerts) {
+		if ([alert.bundleID isEqualToString:self.alertInfo.bundleID]) {
+			hasAlertsForThisApp = YES;
+			break;
+		}
 	}
 
-	[self.navigationController popViewControllerAnimated:YES];
+	if (!hasAlertsForThisApp) {
+		for (UIViewController *vc in self.navigationController.viewControllers) {
+			if ([vc isKindOfClass:[AARootListController class]]) {
+				[self.navigationController popToViewController:vc animated:YES];
+				return;
+			}
+		}
+		[self.navigationController popToRootViewControllerAnimated:YES];
+	} else {
+		if (self.deleteDelegate) {
+			[self.deleteDelegate didDelete];
+		}
+		[self.navigationController popViewControllerAnimated:YES];
+	}
+}
+
+- (void)showActionSelectionAlert {
+	UIAlertController *actionSheet = [UIAlertController alertControllerWithTitle:@"Select Action" message:@"Choose which action should be performed automatically when this alert appears." preferredStyle:UIAlertControllerStyleActionSheet];
+
+	UIAlertAction *noAction = [UIAlertAction actionWithTitle:@"No Action" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+		[self updateSelectedAction:0];
+	}];
+	if (self.alertInfo.selectedAction == 0) {
+		[noAction setValue:@YES forKey:@"checked"];
+	}
+	[actionSheet addAction:noAction];
+
+	UIAlertAction *dismissAction = [UIAlertAction actionWithTitle:@"Dismiss" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+		[self updateSelectedAction:1];
+	}];
+	if (self.alertInfo.selectedAction == 1) {
+		[dismissAction setValue:@YES forKey:@"checked"];
+	}
+	[actionSheet addAction:dismissAction];
+
+	for (int i = 0; i < self.alertInfo.actions.count; i++) {
+		NSString *actionTitle = self.alertInfo.actions[i];
+		UIAlertAction *alertAction = [UIAlertAction actionWithTitle:actionTitle style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+			[self updateSelectedAction:i + 2];
+		}];
+
+		if (self.alertInfo.selectedAction == i + 2) {
+			[alertAction setValue:@YES forKey:@"checked"];
+		}
+		[actionSheet addAction:alertAction];
+	}
+
+	UIAlertAction *cancelAction = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil];
+	[actionSheet addAction:cancelAction];
+
+	actionSheet.popoverPresentationController.sourceView = self.tableView;
+
+	for (int section = 0; section < self.visibleSections.count; section++) {
+		if ([self.visibleSections[section] isEqual:@"SelectedAction"]) {
+			NSIndexPath *selectedActionIndexPath = [NSIndexPath indexPathForRow:0 inSection:section + 2];
+			UITableViewCell *cell = [self.tableView cellForRowAtIndexPath:selectedActionIndexPath];
+			if (cell) {
+				actionSheet.popoverPresentationController.sourceRect = cell.frame;
+				break;
+			}
+		}
+	}
+
+	[self presentViewController:actionSheet animated:YES completion:nil];
+}
+
+- (void)updateSelectedAction:(int)newSelectedAction {
+	self.alertInfo.selectedAction = newSelectedAction;
+
+	NSError *updateError = nil;
+	[[AAAlertManager sharedManager] updateAlert:self.alertInfo error:&updateError];
+
+	if (updateError) {
+		return;
+	}
+
+	NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+	[dict setObject:self.alertInfo.title forKey:@"title"];
+	[dict setObject:self.alertInfo.message forKey:@"message"];
+	[dict setObject:self.alertInfo.actions forKey:@"actions"];
+	[dict setObject:self.alertInfo.textFieldValues forKey:@"textfieldvalues"];
+	[dict setObject:[NSNumber numberWithInt:(int)self.alertInfo.textFieldValues.count] forKey:@"textfieldcount"];
+	[dict setObject:[NSNumber numberWithInt:newSelectedAction] forKey:@"selectedaction"];
+	[dict setObject:self.alertInfo.customAppActions forKey:@"customappactions"];
+
+	NSData *jsonData = [NSJSONSerialization dataWithJSONObject:dict options:0 error:nil];
+	NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+
+	NSString *notificationName = [NSString stringWithFormat:@"com.shiftcmdk.autoalerts.save.%@ %@", self.alertInfo.bundleID, jsonString];
+
+	CFNotificationCenterPostNotification(
+		CFNotificationCenterGetDarwinNotifyCenter(),
+		(CFStringRef)notificationName,
+		NULL,
+		NULL,
+		YES);
+
+	[self.tableView reloadData];
 }
 
 - (void)deleteAlert:(UIBarButtonItem *)sender {
@@ -157,11 +265,13 @@
 
 		cell.textLabel.text = self.alertInfo.title;
 		cell.textLabel.numberOfLines = 0;
+		cell.selectionStyle = UITableViewCellSelectionStyleNone;
 	} else if (indexPath.section == 1) {
 		cell = [tableView dequeueReusableCellWithIdentifier:@"MessageCell" forIndexPath:indexPath];
 
 		cell.textLabel.text = self.alertInfo.message;
 		cell.textLabel.numberOfLines = 0;
+		cell.selectionStyle = UITableViewCellSelectionStyleNone;
 	} else {
 		NSString *identifier = self.visibleSections[indexPath.section - 2];
 
@@ -169,6 +279,7 @@
 			cell = [tableView dequeueReusableCellWithIdentifier:@"ActionCell" forIndexPath:indexPath];
 
 			cell.textLabel.text = self.alertInfo.actions[indexPath.row];
+			cell.selectionStyle = UITableViewCellSelectionStyleNone;
 		} else if ([identifier isEqual:@"SelectedAction"]) {
 			cell = [tableView dequeueReusableCellWithIdentifier:@"SelectedActionCell" forIndexPath:indexPath];
 
@@ -185,6 +296,8 @@
 			}
 
 			cell.textLabel.text = actionString;
+			cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+			cell.selectionStyle = UITableViewCellSelectionStyleDefault;
 		} else if ([identifier isEqual:@"TextFields"]) {
 			cell = [tableView dequeueReusableCellWithIdentifier:@"TextFieldCell"];
 
@@ -194,6 +307,7 @@
 
 			cell.textLabel.text = [NSString stringWithFormat:@"Text Field %i", (int)indexPath.row + 1];
 			cell.detailTextLabel.text = self.alertInfo.textFieldValues[indexPath.row];
+			cell.selectionStyle = UITableViewCellSelectionStyleNone;
 		} else if ([identifier isEqual:@"CustomAppActions"]) {
 			cell = [tableView dequeueReusableCellWithIdentifier:@"AppCell"];
 
@@ -221,12 +335,12 @@
 			}
 
 			cell.detailTextLabel.text = actionString;
+			cell.selectionStyle = UITableViewCellSelectionStyleNone;
 		} else {
 			cell = [[UITableViewCell alloc] init];
+			cell.selectionStyle = UITableViewCellSelectionStyleNone;
 		}
 	}
-
-	cell.selectionStyle = UITableViewCellSelectionStyleNone;
 
 	return cell;
 }
@@ -263,6 +377,14 @@
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 	[tableView deselectRowAtIndexPath:indexPath animated:YES];
+
+	if (indexPath.section >= 2) {
+		NSString *identifier = self.visibleSections[indexPath.section - 2];
+
+		if ([identifier isEqual:@"SelectedAction"]) {
+			[self showActionSelectionAlert];
+		}
+	}
 }
 
 - (BOOL)tableView:(UITableView *)tableView canEditRowAtIndexPath:(NSIndexPath *)indexPath {

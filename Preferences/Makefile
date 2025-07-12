@@ -4,6 +4,7 @@ $(BUNDLE_NAME)_FILES = AARootListController.x ../Model/AAAlertInfo.m ../Tweak/AA
 $(BUNDLE_NAME)_CFLAGS = -fobjc-arc -w
 $(BUNDLE_NAME)_FRAMEWORKS = UIKit
 $(BUNDLE_NAME)_PRIVATE_FRAMEWORKS = Preferences
+$(BUNDLE_NAME)_LIBRARIES = sandy
 $(BUNDLE_NAME)_INSTALL_PATH = /Library/PreferenceBundles
 
 include $(THEOS)/makefiles/common.mk

@@ -1,19 +1,37 @@
+#import <CoreFoundation/CoreFoundation.h>
+#import <libSandy.h>
+#import <roothide.h>
+
 #import "../Model/AAAlertInfo.h"
 #import "AADataStore.h"
 #import "AAUserDefaultsStore.h"
 
-static NSString *const kAlertsKey = @"AutoAlertsStoredAlerts";
+static NSString *kPreferencesPath;
+static NSString *const kLibSandyProfile = @"AutoAlerts";
 
 @interface AAUserDefaultsStore ()
+@property (nonatomic, strong) NSUserDefaults *userDefaults;
 @end
 
 @implementation AAUserDefaultsStore
 
-#pragma mark - Helpers
+- (instancetype)init {
+	if (self = [super init]) {
+		libSandy_applyProfile(kLibSandyProfile.UTF8String);
 
-- (NSMutableArray<NSDictionary *> *)_rawAlerts {
-	NSArray *saved = [[NSUserDefaults standardUserDefaults] objectForKey:kAlertsKey];
-	return saved ? [saved mutableCopy] : [NSMutableArray array];
+		if (!kPreferencesPath) {
+			kPreferencesPath = @"/var/mobile/Library/Preferences/com.shiftcmdk.autoalerts.storage.plist";
+		}
+
+		self.userDefaults = [[NSUserDefaults alloc] initWithSuiteName:kPreferencesPath];
+	}
+	return self;
+}
+
+- (NSArray<NSDictionary *> *)_rawAlerts {
+	NSArray *alerts = [self.userDefaults arrayForKey:@"alerts"];
+	NSArray *result = alerts ?: @[];
+	return result;
 }
 
 - (NSDictionary *)_dictFromAlert:(AAAlertInfo *)alert {
@@ -40,24 +58,21 @@ static NSString *const kAlertsKey = @"AutoAlertsStoredAlerts";
 }
 
 - (void)_saveRawAlerts:(NSArray<NSDictionary *> *)raw {
-	[[NSUserDefaults standardUserDefaults] setObject:raw forKey:kAlertsKey];
-	[[NSUserDefaults standardUserDefaults] synchronize];
+	[self.userDefaults setObject:raw forKey:@"alerts"];
+	[self.userDefaults synchronize];
 }
 
-#pragma mark - AADataStore
-
 - (void)initialize {
-	// Nothing to initialize for user defaults
 }
 
 - (void)saveAlert:(AAAlertInfo *)alert error:(NSError **)error {
-	NSMutableArray *raw = [self _rawAlerts];
+	NSMutableArray *raw = [[self _rawAlerts] mutableCopy];
 	[raw addObject:[self _dictFromAlert:alert]];
 	[self _saveRawAlerts:raw];
 }
 
 - (void)updateAlert:(AAAlertInfo *)alert error:(NSError **)error {
-	NSMutableArray *raw = [self _rawAlerts];
+	NSMutableArray *raw = [[self _rawAlerts] mutableCopy];
 	for (NSUInteger i = 0; i < raw.count; i++) {
 		if ([raw[i][@"identifier"] isEqualToString:alert.identifier]) {
 			raw[i] = [self _dictFromAlert:alert];
@@ -72,7 +87,7 @@ static NSString *const kAlertsKey = @"AutoAlertsStoredAlerts";
 }
 
 - (void)deleteAlertWithID:(NSString *)identifier error:(NSError **)error {
-	NSMutableArray *raw = [self _rawAlerts];
+	NSMutableArray *raw = [[self _rawAlerts] mutableCopy];
 	NSIndexSet *matches = [raw indexesOfObjectsPassingTest:^BOOL(NSDictionary *d, NSUInteger idx, BOOL *stop) {
 		return [d[@"identifier"] isEqualToString:identifier];
 	}];
@@ -81,7 +96,7 @@ static NSString *const kAlertsKey = @"AutoAlertsStoredAlerts";
 }
 
 - (void)deleteAlertsWithBundleID:(NSString *)bundleID error:(NSError **)error {
-	NSMutableArray *raw = [self _rawAlerts];
+	NSMutableArray *raw = [[self _rawAlerts] mutableCopy];
 	NSIndexSet *matches = [raw indexesOfObjectsPassingTest:^BOOL(NSDictionary *d, NSUInteger idx, BOOL *stop) {
 		return [d[@"bundleID"] isEqualToString:bundleID];
 	}];
@@ -90,8 +105,11 @@ static NSString *const kAlertsKey = @"AutoAlertsStoredAlerts";
 }
 
 - (AAAlertInfo *)alertWithID:(NSString *)alertID {
-	for (NSDictionary *d in [self _rawAlerts]) {
-		if ([d[@"identifier"] isEqualToString:alertID]) {
+	NSArray *rawAlerts = [self _rawAlerts];
+
+	for (NSDictionary *d in rawAlerts) {
+		NSString *storedID = d[@"identifier"];
+		if ([storedID isEqualToString:alertID]) {
 			return [self _alertFromDict:d];
 		}
 	}
@@ -99,8 +117,9 @@ static NSString *const kAlertsKey = @"AutoAlertsStoredAlerts";
 }
 
 - (NSArray<AAAlertInfo *> *)allAlerts {
+	NSArray *rawAlerts = [self _rawAlerts];
 	NSMutableArray<AAAlertInfo *> *out = [NSMutableArray array];
-	for (NSDictionary *d in [self _rawAlerts]) {
+	for (NSDictionary *d in rawAlerts) {
 		[out addObject:[self _alertFromDict:d]];
 	}
 	return [out copy];

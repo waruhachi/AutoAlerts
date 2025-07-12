@@ -1,4 +1,5 @@
 #import <UIKit/UIKit.h>
+#import <libSandy.h>
 
 #import "../Model/AAAlertInfo.h"
 #import "AAConfigurationViewControllerDelegate.h"
@@ -14,6 +15,7 @@
 - (void)_dismissAnimated:(BOOL)arg1 triggeringAction:(id)arg2 triggeredByPopoverDimmingView:(BOOL)arg3 dismissCompletion:(/*^block*/ id)arg4;
 - (void)autoPopulateTextFields;
 - (void)aa_runSelectedAction:(int)selectedAction;
+- (void)handleLongPress:(UILongPressGestureRecognizer *)sender;
 @property (readonly) UIView *_foregroundView;
 @property (getter=_window, nonatomic, readonly) UIWindow *window;
 @property (setter=_setActions:, nonatomic, retain) NSArray *actions;
